@@ -36,29 +36,28 @@ public:
             while (1){
                 bytes_read = recv(sock, buf, 1024, 0);
                 if (bytes_read != 0){
-//                    std::cout << buf << std::endl;
-//                    std::cout << bytes_read << std::endl;
+                    std::cout << buf << std::endl;
+                    std::cout << bytes_read << std::endl;
                     if (bytes_read > 2 && bytes_read % 32 == 0) {
                         std::cout << "Accept data" << std::endl;
                         break;
                     } else{
                         std::cout << "Wrong request" << std::endl;
                         bytes_read = 0;
+                        break;
                     }
+                    send(sock, buf, bytes_read, 0);
                 }
             }
             close(sock);
         }
-
         return 0;
     }
     int Stop(){
         close(sock);
         return 0;
     }
-
 };
-
 
 int main(){
     Listener ls(9992);
