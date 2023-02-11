@@ -3,9 +3,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <threads.h>
+#include <thread>
 #include <mutex>
 #include <string>
+#include <limits>
+#include <cstring>
+
+
+std::mutex mut;
 
 class Driver{
     private:
@@ -14,18 +19,15 @@ class Driver{
     public:
         Driver(int port){
             sock = socket(AF_INET, SOCK_STREAM, 0);
-            if (sock < 0){
-                perror("socket");
-                exit(1);
-            }
+            if (sock < 0) perror("socket");
             addr.sin_family = AF_INET;
             addr.sin_port = htons(port);
             addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
         }
         int OpenConnection(){
-            while (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) != 0){
+            if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) != 0){
                 std::cout << "Unable to connect to listener" << std::endl;
-                sleep(10); //Ждать 10 секунд
+                return -1;
             }
             return 0;
         }
@@ -33,46 +35,73 @@ class Driver{
             close(sock);
             return 0;
         }
-        int Send(char* message){
-            send(sock, message, sizeof(message)*8, 0);
+        int Send(char *message){
+            send(sock, message, sizeof(message), 0);
             return 0;
         }
         char* Recive(){
             char* buf[1024];
-            recv(sock, buf, 1024, 0);
+            if (recv(sock, buf, 1024, 0) <0){
+                std::cout << "connection is lost" << std::endl;
+            }
+            std::cout << buf << std::endl;
             return *buf;
         }
 };
 
-char buffer[1024];
+class Buffer{
+    private:
+        char value[1024];
+    public:
+        void SetValue(char* val){
+            for (int i{0}; i < sizeof(val); i++){
+                value[i] = val[i];
+            }
+        }
+        void Clear(){
+            memset(value, 0, sizeof value);
+        }
+        char* GetValue(){
+            return value;
+        }
+};
 
+char* UserInput(){
+    std::cout << "Enter a values" << std::endl;
+    char input[32];
+    std::cin.get(input, 32, '\n');
+    std::cin.ignore(100, '\n');
+    char *p = input;
+    return p;
+}
 
-int main() {
-    char msg[] = "1111111111111111111111111111111111111111111111111111111111111111";
+void ThreadObj(Buffer buf){
     Driver drv(9992);
     drv.OpenConnection();
-    drv.Send(msg);
+    buf.SetValue(UserInput());
+    drv.Send(buf.GetValue());
+    std::cout << buf.GetValue() << std::endl;
+    sleep(2);
+//    drv.Recive();
+}
 
-    std::cout << "enter a values" << std::endl;
-    std::string userInput;
-    std::string formated;
-    getline(std::cin, userInput);
+int main() {
+    Buffer buf;
+//    drv.OpenConnection();
+//    buf.SetValue(UserInput());
+//    drv.Send(buf.GetValue());
 
-
-    for (int i{0}; i < userInput.length(); i++) {
-        if (userInput[i] % 2 == 0) {
-            formated += "KB";
-        } else {
-            formated += userInput[i];
+    std::thread t1([&](){
+        while(1){
+            ThreadObj(buf);
         }
-    }
+    });
+//
+    //drv.CloseConnection();
+//    std::thread t2(buf.GetValue());
+    t1.join();
+//    t2.join();
 
-    std::cout << formated << std::endl;
-    //drv.Recive();
-    drv.CloseConnection();
-
-//    std::thread thr1();
-//    std::thread thr2();
 
     return 0;
 }
